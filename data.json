@@ -1,16 +1,9 @@
 {
   "btcPrice": 57760,
   "athPrice": 108800,
-  "athDays": 315,
-  "athDropPct": -54,
-  "sma200wRatio": 0.98,
+  "athDays": 316,
+  "athDropPct": -46.9,
   "sma200wPrice": 58900,
-  "realizedPrice": 53000,
-  "sopr365": 1.001,
-  "mvrvRatio": 1.14,
-  "supplyInProfit": 47,
-  "fearAndGreed": 25,
-  "fearAndGreedLabel": "Miedo Extremo",
-  "openInterest": "Compresión -28%",
-  "lastUpdated": "Hoy"
+  "fearAndGreed": 41,
+  "lastUpdated": "18 Aug 2026, 01:14 UTC"
 }
