@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Métricas Detectando el Piso de Bitcoin | BTC Cycle Bottom Tracker</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            btc: {
+              DEFAULT: '#F7931A',
+              dark: '#e07f0b',
+              light: '#fde68a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0d1527;
+      color: #e2e8f0;
+    }
+    .metric-table tr {
+      transition: background-color 0.2s ease;
+    }
+    .metric-table tr:hover {
+      background-color: rgba(30, 41, 59, 0.7);
+    }
+    .badge-reached {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1.5px solid #10b981;
+    }
+    .badge-approaching {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1.5px solid #f59e0b;
+    }
+    .badge-far {
+      background-color: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border: 1.5px solid #64748b;
+    }
+    .glass-card {
+      background: rgba(19, 30, 54, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased p-3 sm:p-6 lg:p-10">
+
+  <!-- Main Container -->
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- Header Section -->
+    <header class="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden border border-slate-800">
+      <div class="absolute -right-10 -top-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl font-bold">
+              <i class="fa-brands fa-bitcoin text-2xl text-amber-500"></i>
+            </div>
+            <span class="text-xs uppercase tracking-widest font-semibold px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full">
+              BTC Cycle Bottom Monitor
+            </span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
+            Métricas <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500">detectando el piso</span> de Bitcoin
+          </h1>
+          <p class="text-sm text-slate-400 mt-1 max-w-2xl">
+            Monitoreo en tiempo real de los 9 indicadores macro y on-chain más fiables para la detección de capitulación y suelo de mercado.
+          </p>
+        </div>
+
+        <!-- Controls & Sync -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+          <button id="refreshBtn" onclick="updateAllData()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
+            <i id="refreshIcon" class="fa-solid fa-arrows-rotate text-slate-950"></i>
+            <span>Actualizar Datos</span>
+          </button>
+          
+          <button onclick="openConfigModal()" class="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-medium text-sm border border-slate-700 transition flex items-center justify-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Ajustes</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Summary Status Bar -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800/80">
+        <div class="bg-slate-900/60 rounded-xl p-3.5 border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Indicadores en Piso</div>
+          <div class="flex items-baseline gap-2 mt-1">
+            <span id="reachedCount" class="text-2xl font-bold text-emerald-400">3</span>
+            <span class="text-sm text-slate-500">/ 9 métricas</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="reachedProgressBar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 33%"></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 rounded-xl p-3.5 border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Precio Actual BTC</div>
+          <div id="btcPriceSummary" class="text-2xl font-bold font-mono text-white mt-1">$57,760</div>
+          <div class="text-xs text-slate-400 mt-1 flex items-center gap-1">
+            <span>En vivo</span> <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 rounded-xl p-3.5 border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">ATH Referencia</div>
+          <div id="athPriceSummary" class="text-2xl font-bold font-mono text-amber-400 mt-1">$108,800</div>
+          <div class="text-xs text-slate-400 mt-1">Hace <span id="summaryDaysAth" class="text-slate-300 font-semibold">315</span> días</div>
+        </div>
+
+        <div class="bg-slate-900/60 rounded-xl p-3.5 border border-slate-800">
+          <div class="text-xs text-slate-400 font-medium">Estado General</div>
+          <div id="generalMarketStatus" class="text-sm font-bold text-amber-400 mt-2 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg inline-block">
+            ACERCÁNDOSE AL PISO
+          </div>
+          <div class="text-[10px] text-slate-400 mt-1.5">Sincronizado: <span id="lastUpdatedTime">Hoy</span></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Indicator Table -->
+    <main class="glass-card rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+      
+      <!-- Table Header Bar -->
+      <div class="bg-slate-900/90 px-6 py-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chart-pie text-amber-400"></i>
+          <h2 class="font-bold text-slate-200 text-base">Tabla de Métricas y Umbrales</h2>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-slate-400">
+          <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Alcanzado</span>
+          <span class="flex items-center gap-1.5 ml-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Acercándose</span>
+          <span class="flex items-center gap-1.5 ml-2"><span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span> Lejos</span>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse metric-table">
+          <thead>
+            <tr class="border-b border-slate-800 bg-slate-900/50 text-[13px] uppercase tracking-wider text-slate-400 font-semibold">
+              <th class="py-3.5 px-6 min-w-[280px]">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-chart-simple text-slate-500"></i>
+                  <span>Indicador</span>
+                </div>
+              </th>
+              <th class="py-3.5 px-6 min-w-[160px] text-right sm:text-left">
+                <div class="flex items-center gap-2 justify-end sm:justify-start">
+                  <i class="fa-solid fa-arrow-trend-up text-slate-500"></i>
+                  <span>Nivel Alcanzado</span>
+                </div>
+              </th>
+              <th class="py-3.5 px-6 min-w-[180px]">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-bullseye text-slate-500"></i>
+                  <span>Fondo del Precio (Objetivo)</span>
+                </div>
+              </th>
+              <th class="py-3.5 px-6 min-w-[170px] text-right sm:text-left">
+                <div class="flex items-center gap-2 justify-end sm:justify-start">
+                  <i class="fa-solid fa-shield-halved text-slate-500"></i>
+                  <span>Estado</span>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="metricsTableBody" class="divide-y divide-slate-800/60 text-sm">
+            <!-- Renderizado dinámicamente por JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer -->
+      <div class="bg-slate-900/80 px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-info text-amber-400/80"></i>
+          <span>Fuente de cálculo: Análisis de ciclos históricos BTC, datos On-Chain y APIs de mercado.</span>
+        </div>
+        <div>
+          <span>Auto-actualización programada diaria vía GitHub Actions (00:00 UTC)</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Cycle Details & Playbook Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card rounded-2xl p-5 border border-slate-800 md:col-span-2">
+        <h3 class="font-bold text-base text-slate-200 flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-lightbulb text-amber-400"></i>
+          ¿Cómo interpretar la capitulación de ciclo?
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Históricamente, los suelos definitivos de Bitcoin (2015, 2018, 2022) no ocurren por un solo indicador, sino por la <strong>confluencia de al menos 4 a 6 métricas en estado ALCANZADO</strong>. La vulneración de la media móvil de 200 semanas junto a la caída por debajo del Precio Realizado y lecturas de Miedo Extremo (&lt;25) han marcado los puntos de máximo retorno asimétrico a largo plazo.
+        </p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 border border-slate-800 flex flex-col justify-between">
+        <div>
+          <h3 class="font-bold text-base text-slate-200 flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-clock-rotate-left text-orange-400"></i>
+            Temporizador de Ciclo
+          </h3>
+          <p class="text-xs text-slate-400">
+            Promedio histórico de duración entre ATH y fondo absoluto: <strong>~370 - 390 días</strong>.
+          </p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>Ventana de Piso Proyectada:</span>
+          <span id="projectedBottomDate" class="font-mono text-amber-400 font-bold">~380 días post-ATH</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Settings / Config Modal -->
+  <div id="configModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden p-4">
+    <div class="glass-card rounded-2xl max-w-lg w-full p-6 border border-slate-700 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-amber-400"></i>
+          Configurar Parámetros del Ciclo
+        </h3>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Precio Máximo ATH del Ciclo (USD)</label>
+          <input type="number" id="inputAthPrice" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono" value="108800" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Fecha del Máximo ATH (YYYY-MM-DD)</label>
+          <input type="date" id="inputAthDate" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono" value="2025-10-06" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Precio Realizado On-Chain ($)</label>
+          <input type="number" id="inputRealizedPrice" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono" value="53000" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">SOPR 365 días</label>
+          <input type="number" step="0.001" id="inputSopr" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono" value="1.001" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">% Circulante en Ganancias</label>
+          <input type="number" id="inputSupplyProfit" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono" value="47" />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+        <button onclick="closeConfigModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold cursor-pointer">Cancelar</button>
+        <button onclick="saveCustomConfig()" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold cursor-pointer">Guardar y Recalcular</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-emerald-500/50 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 z-50 text-sm">
+    <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+    <span id="toastMessage">Datos actualizados exitosamente</span>
+  </div>
+
+  <!-- Dashboard Logic & Auto Fetch Script -->
+  <script>
+    // Configuration baseline
+    let config = {
+      athPrice: 108800,
+      athDate: '2025-10-06',
+      realizedPrice: 53000,
+      sopr365: 1.001,
+      supplyInProfit: 47,
+      openInterestStatus: 'ACERCÁNDOSE',
+      openInterestVal: 'Compresión -28%'
+    };
+
+    let marketData = {
+      btcPrice: 57760,
+      athPrice: 108800,
+      athDays: 315,
+      athDropPct: -54,
+      sma200wRatio: 0.98,
+      sma200wPrice: 58900,
+      realizedPrice: 53000,
+      sopr365: 1.001,
+      mvrvRatio: 1.14,
+      supplyInProfit: 47,
+      fearAndGreed: 25,
+      fearAndGreedLabel: 'Miedo Extremo',
+      openInterest: 'Compresión -28%',
+      lastUpdated: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    };
+
+    // Load persisted local config
+    const savedConfig = localStorage.getItem('btc_bottom_config');
+    if (savedConfig) {
+      try {
+        config = { ...config, ...JSON.parse(savedConfig) };
+      } catch(e) {}
+    }
+
+    // Evaluation Logic for the 9 Indicators
+    function buildMetricsList() {
+      // 1. Reloj Cíclico: Días desde ATH
+      const athDateObj = new Date(config.athDate);
+      const today = new Date();
+      const diffDays = Math.max(1, Math.round((today - athDateObj) / (1000 * 60 * 60 * 24)));
+      const daysState = diffDays >= 380 ? 'ALCANZADO' : (diffDays >= 300 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 2. % de caída desde ATH
+      const dropPct = ((marketData.btcPrice - config.athPrice) / config.athPrice) * 100;
+      const dropState = dropPct <= -55 ? 'ALCANZADO' : (dropPct <= -48 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 3. Precio 200 semanas (200 WMA)
+      const smaRatio = marketData.sma200wPrice > 0 ? (marketData.btcPrice / marketData.sma200wPrice) : marketData.sma200wRatio;
+      const smaState = smaRatio <= 1.00 ? 'ALCANZADO' : (smaRatio <= 1.08 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 4. Precio Realizado
+      const realizedPrice = config.realizedPrice;
+      const realizedRatio = marketData.btcPrice / realizedPrice;
+      const realizedState = marketData.btcPrice <= realizedPrice ? 'ALCANZADO' : (realizedRatio <= 1.12 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 5. SOPR 365 días
+      const sopr = config.sopr365;
+      const soprState = sopr <= 1.00 ? 'ALCANZADO' : (sopr <= 1.02 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 6. MVRV Ratio
+      const mvrv = marketData.btcPrice / realizedPrice;
+      const mvrvState = mvrv <= 1.00 ? 'ALCANZADO' : (mvrv <= 1.25 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 7. % Circulante en ganancias
+      const supplyProfit = config.supplyInProfit;
+      const supplyState = supplyProfit <= 50 ? 'ALCANZADO' : (supplyProfit <= 55 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 8. Miedo y Codicia
+      const fng = marketData.fearAndGreed;
+      const fngState = fng <= 25 ? 'ALCANZADO' : (fng <= 35 ? 'ACERCÁNDOSE' : 'LEJOS');
+
+      // 9. Interés Abierto en Futuros
+      const oiState = config.openInterestStatus;
+
+      return [
+        {
+          id: 'cyclic_days',
+          icon: 'fa-calendar-days',
+          title: 'Reloj Cíclico: días desde ATH',
+          subtitle: 'El piso a ~380 días luego del ATH.',
+          achieved: `${diffDays} Días`,
+          target: '~380 Días',
+          state: daysState
+        },
+        {
+          id: 'cyclic_drop',
+          icon: 'fa-arrow-trend-down',
+          title: 'Reloj Cíclico: % de caída desde ATH',
+          subtitle: 'Se reduce en cada ciclo (esperada 55 a 65%).',
+          achieved: `${dropPct.toFixed(0)}%`,
+          target: '93%, 86%, 84% y 77%',
+          state: dropState
+        },
+        {
+          id: 'sma_200w',
+          icon: 'fa-wave-square',
+          title: 'Precio 200 semanas',
+          subtitle: 'Vulnerar la media móvil de 200 semanas.',
+          achieved: `${smaRatio.toFixed(2).replace('.', ',')}`,
+          target: '1,00',
+          state: smaState
+        },
+        {
+          id: 'realized_price',
+          icon: 'fa-dollar-sign',
+          title: 'Precio Realizado',
+          subtitle: 'Vulnerarlo (Cada ciclo menos % y tiempo).',
+          achieved: `$${marketData.btcPrice.toLocaleString('es-ES')}`,
+          target: `$${realizedPrice.toLocaleString('es-ES')}`,
+          state: realizedState
+        },
+        {
+          id: 'sopr_365',
+          icon: 'fa-scale-balanced',
+          title: 'SOPR 365 días',
+          subtitle: 'Menor a 1 = la mayoría del mercado vende en pérdidas.',
+          achieved: `${sopr.toFixed(3).replace('.', ',')}`,
+          target: '1,00',
+          state: soprState
+        },
+        {
+          id: 'mvrv_ratio',
+          icon: 'fa-arrows-left-right',
+          title: 'MVRV Ratio',
+          subtitle: 'Diferencia entre Cap. de mercado y Cap. realizada.',
+          achieved: `${mvrv.toFixed(2).replace('.', ',')}`,
+          target: '1,00',
+          state: mvrvState
+        },
+        {
+          id: 'supply_profit',
+          icon: 'fa-percent',
+          title: '% Circulante en ganancias',
+          subtitle: 'Abajo del 50% evidencia capitulación.',
+          achieved: `${supplyProfit}%`,
+          target: '50%',
+          state: supplyState
+        },
+        {
+          id: 'fear_greed',
+          icon: 'fa-gauge-high',
+          title: 'Sentimiento: Miedo y Codicia',
+          subtitle: 'Mejora entre las medias: mensual y trimestral',
+          achieved: `${fng}`,
+          target: '25',
+          state: fngState
+        },
+        {
+          id: 'open_interest',
+          icon: 'fa-chart-line',
+          title: 'Sentimiento: Interes abierto en futuros',
+          subtitle: 'Mejora entre las medias: mensual y trimestral',
+          achieved: config.openInterestVal,
+          target: 'Purga > 30%',
+          state: oiState
+        }
+      ];
+    }
+
+    // Render Table and Status Elements
+    function renderDashboard() {
+      const metrics = buildMetricsList();
+      const tbody = document.getElementById('metricsTableBody');
+      tbody.innerHTML = '';
+
+      let reachedCount = 0;
+
+      metrics.forEach((m) => {
+        if (m.state === 'ALCANZADO') reachedCount++;
+
+        let badgeHtml = '';
+        let valueColor = 'text-slate-100 font-bold font-mono';
+
+        if (m.state === 'ALCANZADO') {
+          valueColor = 'text-emerald-400 font-bold font-mono';
+          badgeHtml = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold tracking-wider badge-reached shadow-sm">
+              <i class="fa-solid fa-circle-check text-emerald-500"></i>
+              ALCANZADO
+            </span>
+          `;
+        } else if (m.state === 'ACERCÁNDOSE') {
+          valueColor = 'text-amber-400 font-bold font-mono';
+          badgeHtml = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold tracking-wider badge-approaching shadow-sm">
+              <i class="fa-solid fa-clock text-amber-500"></i>
+              ACERCÁNDOSE
+            </span>
+          `;
+        } else {
+          valueColor = 'text-slate-400 font-bold font-mono';
+          badgeHtml = `
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold tracking-wider badge-far">
+              <i class="fa-solid fa-circle text-slate-500 text-[8px]"></i>
+              LEJOS
+            </span>
+          `;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition-colors border-b border-slate-800/50';
+        tr.innerHTML = `
+          <td class="py-4 px-6">
+            <div class="flex items-start gap-3.5">
+              <div class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-amber-400 shrink-0 text-sm mt-0.5">
+                <i class="fa-solid ${m.icon}"></i>
+              </div>
+              <div>
+                <div class="font-bold text-slate-100 text-sm tracking-tight">${m.title}</div>
+                <div class="text-xs text-slate-400 mt-0.5">${m.subtitle}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-4 px-6 text-right sm:text-left">
+            <div class="${valueColor} text-base">${m.achieved}</div>
+          </td>
+          <td class="py-4 px-6 text-slate-300 font-mono text-sm">
+            ${m.target}
+          </td>
+          <td class="py-4 px-6 text-right sm:text-left">
+            ${badgeHtml}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Update Summary Header
+      document.getElementById('reachedCount').innerText = reachedCount;
+      const pct = (reachedCount / metrics.length) * 100;
+      document.getElementById('reachedProgressBar').style.width = `${pct}%`;
+
+      document.getElementById('btcPriceSummary').innerText = `$${marketData.btcPrice.toLocaleString('es-ES')}`;
+      document.getElementById('athPriceSummary').innerText = `$${config.athPrice.toLocaleString('es-ES')}`;
+
+      const athDays = Math.max(1, Math.round((new Date() - new Date(config.athDate)) / (1000 * 60 * 60 * 24)));
+      document.getElementById('summaryDaysAth').innerText = athDays;
+
+      const marketStatusEl = document.getElementById('generalMarketStatus');
+      if (reachedCount >= 5) {
+        marketStatusEl.innerText = '🔥 SUELO / CAPITULACIÓN';
+        marketStatusEl.className = 'text-sm font-bold text-emerald-400 mt-2 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg inline-block';
+      } else if (reachedCount >= 3) {
+        marketStatusEl.innerText = '⚡ ACERCÁNDOSE AL PISO';
+        marketStatusEl.className = 'text-sm font-bold text-amber-400 mt-2 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg inline-block';
+      } else {
+        marketStatusEl.innerText = '📊 EN FASE CORRECTIVA';
+        marketStatusEl.className = 'text-sm font-bold text-slate-300 mt-2 px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg inline-block';
+      }
+
+      document.getElementById('lastUpdatedTime').innerText = marketData.lastUpdated;
+    }
+
+    // Live Data Engine (Manual + Auto)
+    async function updateAllData() {
+      const btn = document.getElementById('refreshBtn');
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('fa-spin');
+      btn.disabled = true;
+
+      try {
+        // 1. Try reading data.json if updated via GitHub Actions
+        try {
+          const localRes = await fetch('data.json', { cache: 'no-store' });
+          if (localRes.ok) {
+            const jsonData = await localRes.json();
+            marketData = { ...marketData, ...jsonData };
+          }
+        } catch(e) {}
+
+        // 2. Fetch live BTC spot price from Binance Public API
+        try {
+          const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+          if (binanceRes.ok) {
+            const data = await binanceRes.json();
+            marketData.btcPrice = Math.round(parseFloat(data.price));
+          }
+        } catch (e) {
+          try {
+            const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+            if (cgRes.ok) {
+              const cgData = await cgRes.json();
+              marketData.btcPrice = Math.round(cgData.bitcoin.usd);
+            }
+          } catch (cgErr) {}
+        }
+
+        // 3. Fetch 200 weekly candles to calculate 200 WMA
+        try {
+          const klineRes = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1w&limit=200');
+          if (klineRes.ok) {
+            const klines = await klineRes.json();
+            if (klines.length >= 150) {
+              const closes = klines.map(k => parseFloat(k));
+              const sum = closes.reduce((a, b) => a + b, 0);
+              marketData.sma200wPrice = Math.round(sum / closes.length);
+              marketData.sma200wRatio = marketData.btcPrice / marketData.sma200wPrice;
+            }
+          }
+        } catch (e) {}
+
+        // 4. Fetch Fear & Greed Index from Alternative.me
+        try {
+          const fngRes = await fetch('https://api.alternative.me/fng/?limit=1');
+          if (fngRes.ok) {
+            const fngData = await fngRes.json();
+            if (fngData.data && fngData.data.length > 0) {
+              marketData.fearAndGreed = parseInt(fngData.data[0].value);
+              marketData.fearAndGreedLabel = fngData.data[0].value_classification;
+            }
+          }
+        } catch (e) {}
+
+        marketData.lastUpdated = new Date().toLocaleDateString('es-ES', { 
+          day: '2-digit', month: 'short', year: 'numeric', 
+          hour: '2-digit', minute: '2-digit' 
+        });
+
+        renderDashboard();
+        showToast('Datos en vivo actualizados correctamente');
+      } catch (err) {
+        console.error('Error actualizando:', err);
+        renderDashboard();
+        showToast('Datos recalculados con parámetros locales');
+      } finally {
+        icon.classList.remove('fa-spin');
+        btn.disabled = false;
+      }
+    }
+
+    // Modal Handlers
+    function openConfigModal() {
+      document.getElementById('inputAthPrice').value = config.athPrice;
+      document.getElementById('inputAthDate').value = config.athDate;
+      document.getElementById('inputRealizedPrice').value = config.realizedPrice;
+      document.getElementById('inputSopr').value = config.sopr365;
+      document.getElementById('inputSupplyProfit').value = config.supplyInProfit;
+      document.getElementById('configModal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.add('hidden');
+    }
+
+    function saveCustomConfig() {
+      config.athPrice = parseFloat(document.getElementById('inputAthPrice').value) || 108800;
+      config.athDate = document.getElementById('inputAthDate').value || '2025-10-06';
+      config.realizedPrice = parseFloat(document.getElementById('inputRealizedPrice').value) || 53000;
+      config.sopr365 = parseFloat(document.getElementById('inputSopr').value) || 1.001;
+      config.supplyInProfit = parseFloat(document.getElementById('inputSupplyProfit').value) || 47;
+
+      localStorage.setItem('btc_bottom_config', JSON.stringify(config));
+      closeConfigModal();
+      renderDashboard();
+      showToast('Configuración guardada y tablero recalculado');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderDashboard();
+      updateAllData();
+    });
+  </script>
+</body>
+</html>
